@@ -141,10 +141,49 @@ func CommandSetOnOff(conf interface{}, field string, args []string) error {
 }
 
 func CommandSetIntArray(conf interface{}, field string, args []string) error {
+	v, err := getStructField(conf, field, reflect.Slice)
+	if err != nil {
+		return err
+	}
+
+	var tmp int
+	intType := reflect.TypeOf(tmp)
+
+	l := len(args)
+	slice := reflect.MakeSlice(reflect.SliceOf(intType), l, l)
+
+	for i := 0; i < l; i++ {
+		val := slice.Index(i)
+		if a, err := strconv.Atoi(args[i]); err != nil {
+			return err
+		} else {
+			val.SetInt(int64(a))
+		}
+	}
+
+	v.Set(slice)
 	return nil
 }
 
 func CommandSetStringArray(conf interface{}, field string, args []string) error {
+	v, err := getStructField(conf, field, reflect.Slice)
+	if err != nil {
+		return err
+	}
+
+	var tmp string
+	strType := reflect.TypeOf(tmp)
+
+	l := len(args)
+	slice := reflect.MakeSlice(reflect.SliceOf(strType), l, l)
+
+	for i := 0; i < l; i++ {
+		val := slice.Index(i)
+		s := trimString(args[i])
+		val.SetString(s)
+	}
+
+	v.Set(slice)
 	return nil
 }
 

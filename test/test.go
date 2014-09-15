@@ -9,11 +9,13 @@ import (
 type RootConf struct {
 	Test  int
 	Test2 string
+	Test3 []int
 }
 
 var RootCommands = []cfm.Command{
 	{"test", "Test", 1, cfm.CommandSetInt},
 	{"test2", "Test2", "wxw", cfm.CommandSetString},
+	{"test3", "Test3", "wxw", cfm.CommandSetIntArray},
 }
 
 // tcp
