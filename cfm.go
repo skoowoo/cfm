@@ -93,21 +93,9 @@ type Command struct {
 
 // set integer value
 func CommandSetInt(conf interface{}, field string, args []string) error {
-	v := reflect.ValueOf(conf)
-	if v.IsNil() && !v.IsValid() {
-		return errors.New("Not valid")
-	}
-
-	if v = v.Elem(); v.Kind() != reflect.Struct {
-		return errors.New("Not Struct")
-	}
-
-	if v = v.FieldByName(field); v.Kind() != reflect.Int {
-		return errors.New("Not found struct's field: " + field)
-	}
-
-	if !v.CanSet() {
-		return errors.New("Can't set")
+	v, err := getStructField(conf, field, reflect.Int)
+	if err != nil {
+		return err
 	}
 
 	if val, err := strconv.Atoi(args[0]); err != nil {
@@ -121,21 +109,9 @@ func CommandSetInt(conf interface{}, field string, args []string) error {
 
 // set string value
 func CommandSetString(conf interface{}, field string, args []string) error {
-	v := reflect.ValueOf(conf)
-	if v.IsNil() && !v.IsValid() {
-		return errors.New("Not valid")
-	}
-
-	if v = v.Elem(); v.Kind() != reflect.Struct {
-		return errors.New("Not Struct")
-	}
-
-	if v = v.FieldByName(field); v.Kind() != reflect.String {
-		return errors.New("Not found struct's field: " + field)
-	}
-
-	if !v.CanSet() {
-		return errors.New("Can't set")
+	v, err := getStructField(conf, field, reflect.String)
+	if err != nil {
+		return err
 	}
 
 	val := trimString(args[0])
@@ -145,21 +121,9 @@ func CommandSetString(conf interface{}, field string, args []string) error {
 
 // set on/off value, bool value
 func CommandSetOnOff(conf interface{}, field string, args []string) error {
-	v := reflect.ValueOf(conf)
-	if v.IsNil() && !v.IsValid() {
-		return errors.New("Not valid")
-	}
-
-	if v = v.Elem(); v.Kind() != reflect.Struct {
-		return errors.New("Not Struct")
-	}
-
-	if v = v.FieldByName(field); v.Kind() != reflect.Bool {
-		return errors.New("Not found struct's field: " + field)
-	}
-
-	if !v.CanSet() {
-		return errors.New("Can't set")
+	v, err := getStructField(conf, field, reflect.Bool)
+	if err != nil {
+		return err
 	}
 
 	switch {

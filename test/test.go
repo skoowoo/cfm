@@ -45,5 +45,5 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	log.Println(rootConf.Test2)
+	log.Println(rootConf, tcpConf)
 }

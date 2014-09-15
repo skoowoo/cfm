@@ -2,6 +2,9 @@ package cfm
 
 import (
 	"container/list"
+	"errors"
+	"fmt"
+	"reflect"
 )
 
 type stack struct {
@@ -65,4 +68,31 @@ func trimString(s string) string {
 	}
 
 	return s
+}
+
+func getStructField(s interface{}, field string, kind reflect.Kind) (v reflect.Value, err error) {
+	v = reflect.ValueOf(s)
+	if v.IsNil() && !v.IsValid() {
+		err = errors.New("Not valid")
+		return
+	}
+
+	if v = v.Elem(); v.Kind() != reflect.Struct {
+		err = fmt.Errorf("%s not struct", v.Type().Name())
+		return
+	}
+
+	structName := v.Type().Name()
+
+	if v = v.FieldByName(field); v.Kind() != kind {
+		err = fmt.Errorf("%s not contain field: %s (or type error)", structName, field)
+		return
+	}
+
+	if !v.CanSet() {
+		err = fmt.Errorf("can't set %s.%s", structName, field)
+		return
+	}
+
+	return
 }
