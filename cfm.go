@@ -10,10 +10,7 @@ import (
 	"strconv"
 )
 
-const (
-	CTX_ROOT_NAME = "root"
-	blankCutSet   = " \t\r\n"
-)
+const CTX_ROOT_NAME = "root"
 
 // 'Context' is the config scope for one module
 type Context struct {
@@ -216,6 +213,35 @@ func (c *Config) addContext(ctx *Context) {
 	c.allContexts[ctx.name] = ctx
 }
 
+func (c *Config) initDefault() error {
+	var dltVal string
+
+	for _, ctx := range c.allContexts {
+		for _, cmd := range ctx.commands {
+
+			dlfType := reflect.TypeOf(cmd.Default)
+            if dlfType.Kind() != reflect.Int && dlfType.Kind() != reflect.String {
+                return errors.New("default value's type error (not int or string)")
+            }
+
+            if dlfType.Kind() == reflect.Int {
+				v := cmd.Default.(int)
+				dltVal = strconv.Itoa(v)
+			}
+
+			args := splitCommandEntry([]byte(dltVal))
+			if len(args) == 0 {
+				continue
+			}
+
+			if err := cmd.Setter(ctx.Conf(), cmd.Field, args); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 /*
 cmd1 1 2;
 cmd2 1 2;
@@ -240,6 +266,10 @@ $udp {
 */
 // Call Parse() to parse the config file
 func (c *Config) Parse() error {
+    if err := c.initDefault(); err != nil {
+        return err
+    }
+
 	ctxStack := newStack()
 	rootCtx, ok := c.allContexts[CTX_ROOT_NAME]
 	if !ok {
@@ -345,51 +375,24 @@ func (c *Config) Parse() error {
 }
 
 func tryParseCommand(ctx *Context, s []byte) error {
-	split := func(s []byte) (string, []byte) {
-		s = bytes.Trim(s, blankCutSet)
-
-		for i := 0; i < len(s); i++ {
-			c := s[i]
-
-			if isBlank(c) {
-				return string(s[:i]), s[i:]
-			}
-		}
-
-		return string(s), nil
-	}
-
-	fields := make([]string, 0, 3)
-	var f string
-
-	for {
-		f, s = split(s)
-
-		if f != "" {
-			fields = append(fields, f)
-		}
-
-		if s == nil {
-			break
-		}
-	}
-
+	fields := splitCommandEntry(s)
 	if len(fields) == 0 {
 		return nil
 	}
 
 	name := fields[0]
+	args := fields[1:]
 
 	cmd, ok := ctx.commands[name]
 	if !ok {
 		return errors.New("Not found command: " + name)
 	}
 
-	if len(fields[1:]) == 0 {
+	if len(args) == 0 {
 		return fmt.Errorf("Command \"%s\" not value", name)
 	}
 
-	if err := cmd.Setter(ctx.Conf(), cmd.Field, fields[1:]); err != nil {
+	if err := cmd.Setter(ctx.Conf(), cmd.Field, args); err != nil {
 		return err
 	}
 

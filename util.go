@@ -1,11 +1,14 @@
 package cfm
 
 import (
+	"bytes"
 	"container/list"
 	"errors"
 	"fmt"
 	"reflect"
 )
+
+const blankCutSet = " \t\r\n"
 
 type stack struct {
 	l *list.List
@@ -94,5 +97,36 @@ func getStructField(s interface{}, field string, kind reflect.Kind) (v reflect.V
 		return
 	}
 
+	return
+}
+
+func splitCommandEntry(entry []byte) (fields []string) {
+
+	splitFunc := func(s []byte) (string, []byte) {
+		s = bytes.Trim(s, blankCutSet)
+
+		for i := 0; i < len(s); i++ {
+			c := s[i]
+
+			if isBlank(c) {
+				return string(s[:i]), s[i:]
+			}
+		}
+
+		return string(s), nil
+	}
+
+	fields = make([]string, 0, 3)
+	var f string
+
+	for {
+		if f, entry = splitFunc(entry); f != "" {
+			fields = append(fields, f)
+		}
+
+		if entry == nil {
+			break
+		}
+	}
 	return
 }
