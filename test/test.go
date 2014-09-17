@@ -28,22 +28,17 @@ var TcpCommands = []cfm.Command{
 }
 
 func main() {
-	cfg := cfm.LoadConfig("test.conf")
-
 	rootConf := &RootConf{}
-	root := cfm.NewRootContext(cfg)
+	root := cfm.NewRootContext()
 	root.AddCommand(RootCommands)
 	root.AddConf(rootConf)
 
 	tcpConf := &TcpConf{}
-	tcp, err := root.AddContext("tcp")
-	if err != nil {
-		log.Println(err)
-	}
+	tcp := cfm.NewContext("tcp", cfm.CTX_ROOT_NAME)
 	tcp.AddCommand(TcpCommands)
 	tcp.AddConf(tcpConf)
 
-	if err := cfg.Parse(); err != nil {
+	if err := cfm.LoadConfig("test.conf").Parse(); err != nil {
 		log.Fatalln(err)
 	}
 

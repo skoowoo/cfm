@@ -12,43 +12,39 @@ import (
 
 const CTX_ROOT_NAME = "root"
 
+var contexts map[string]*Context
+
 // 'Context' is the config scope for one module
 type Context struct {
-	name     string
-	commands map[string]*Command
-	childs   map[string]*Context
-	parent   *Context
-	conf     interface{}
-	cfg      *Config
+	name       string
+	commands   map[string]*Command
+	childs     map[string]*Context
+	parent     *Context
+	parentName string
+	conf       interface{}
 }
 
-func newContext(name string, cfg *Config, p *Context) *Context {
+func NewContext(name string, pName string) *Context {
 	ctx := new(Context)
 	ctx.name = name
 	ctx.commands = make(map[string]*Command)
 	ctx.childs = make(map[string]*Context)
-	ctx.cfg = cfg
-	ctx.parent = p
+	ctx.parentName = pName
 
-	cfg.addContext(ctx)
+	if contexts == nil {
+		contexts = make(map[string]*Context)
+	}
+	if _, ok := contexts[name]; ok {
+		return nil
+	}
+	contexts[name] = ctx
+
 	return ctx
 }
 
-func NewRootContext(cfg *Config) (root *Context) {
-	root = newContext(CTX_ROOT_NAME, cfg, nil)
+func NewRootContext() (root *Context) {
+	root = NewContext(CTX_ROOT_NAME, "")
 	return
-}
-
-func (c *Context) AddContext(name string) (*Context, error) {
-	if _, ok := c.childs[name]; ok {
-		return nil, errors.New("duplicate context: " + name)
-	}
-
-	ctx := newContext(name, c.cfg, c)
-
-	c.childs[name] = ctx
-
-	return ctx, nil
 }
 
 func (c *Context) AddCommand(cmd []Command) error {
@@ -192,7 +188,7 @@ type Config struct {
 
 func LoadConfig(path string) *Config {
 	c := new(Config)
-	c.allContexts = make(map[string]*Context)
+	c.allContexts = contexts
 	c.path = path
 
 	file, err := os.Open(path)
@@ -207,39 +203,6 @@ func LoadConfig(path string) *Config {
 
 	c.content = content
 	return c
-}
-
-func (c *Config) addContext(ctx *Context) {
-	c.allContexts[ctx.name] = ctx
-}
-
-func (c *Config) initDefault() error {
-	var dltVal string
-
-	for _, ctx := range c.allContexts {
-		for _, cmd := range ctx.commands {
-
-			dlfType := reflect.TypeOf(cmd.Default)
-            if dlfType.Kind() != reflect.Int && dlfType.Kind() != reflect.String {
-                return errors.New("default value's type error (not int or string)")
-            }
-
-            if dlfType.Kind() == reflect.Int {
-				v := cmd.Default.(int)
-				dltVal = strconv.Itoa(v)
-			}
-
-			args := splitCommandEntry([]byte(dltVal))
-			if len(args) == 0 {
-				continue
-			}
-
-			if err := cmd.Setter(ctx.Conf(), cmd.Field, args); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 /*
@@ -266,9 +229,12 @@ $udp {
 */
 // Call Parse() to parse the config file
 func (c *Config) Parse() error {
-    if err := c.initDefault(); err != nil {
-        return err
-    }
+	if err := c.buildRelation(); err != nil {
+		return err
+	}
+	if err := c.initDefault(); err != nil {
+		return err
+	}
 
 	ctxStack := newStack()
 	rootCtx, ok := c.allContexts[CTX_ROOT_NAME]
@@ -374,6 +340,55 @@ func (c *Config) Parse() error {
 	return nil
 }
 
+func (c *Config) buildRelation() error {
+	for name, ctx := range c.allContexts {
+		if ctx.parentName == "" && name == CTX_ROOT_NAME {
+			continue
+		}
+
+		if parent, ok := c.allContexts[ctx.parentName]; !ok {
+			return errors.New("Not found context: " + ctx.parentName)
+		} else {
+			ctx.parent = parent
+
+			if _, ok := parent.childs[name]; ok {
+				errors.New("duplicate context: " + name)
+			}
+			parent.childs[name] = ctx
+		}
+	}
+	return nil
+}
+
+func (c *Config) initDefault() error {
+	var dltVal string
+
+	for _, ctx := range c.allContexts {
+		for _, cmd := range ctx.commands {
+
+			dlfType := reflect.TypeOf(cmd.Default)
+			if dlfType.Kind() != reflect.Int && dlfType.Kind() != reflect.String {
+				return errors.New("default value's type error (not int or string)")
+			}
+
+			if dlfType.Kind() == reflect.Int {
+				v := cmd.Default.(int)
+				dltVal = strconv.Itoa(v)
+			}
+
+			args := splitCommandEntry([]byte(dltVal))
+			if len(args) == 0 {
+				continue
+			}
+
+			if err := cmd.Setter(ctx.Conf(), cmd.Field, args); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func tryParseCommand(ctx *Context, s []byte) error {
 	fields := splitCommandEntry(s)
 	if len(fields) == 0 {
@@ -397,4 +412,10 @@ func tryParseCommand(ctx *Context, s []byte) error {
 	}
 
 	return nil
+}
+
+func init() {
+	if contexts == nil {
+		contexts = make(map[string]*Context)
+	}
 }
