@@ -49,6 +49,10 @@ func (s *stack) top() (ctx *Context) {
 	return
 }
 
+func (s *stack) size() int {
+	return s.l.Len()
+}
+
 func skip(c byte) bool {
 	return isBlank(c)
 }
@@ -73,7 +77,7 @@ func trimString(s string) string {
 	return s
 }
 
-func getStructField(s interface{}, field string, kind reflect.Kind) (v reflect.Value, err error) {
+func GetStructField(s interface{}, field string, kind reflect.Kind) (v reflect.Value, err error) {
 	v = reflect.ValueOf(s)
 	if v.IsNil() && !v.IsValid() {
 		err = errors.New("Not valid")

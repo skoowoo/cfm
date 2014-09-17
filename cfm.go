@@ -86,7 +86,7 @@ type Command struct {
 
 // set integer value
 func CommandSetInt(conf interface{}, field string, args []string) error {
-	v, err := getStructField(conf, field, reflect.Int)
+	v, err := GetStructField(conf, field, reflect.Int)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func CommandSetInt(conf interface{}, field string, args []string) error {
 
 // set string value
 func CommandSetString(conf interface{}, field string, args []string) error {
-	v, err := getStructField(conf, field, reflect.String)
+	v, err := GetStructField(conf, field, reflect.String)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func CommandSetString(conf interface{}, field string, args []string) error {
 
 // set on/off value, bool value
 func CommandSetOnOff(conf interface{}, field string, args []string) error {
-	v, err := getStructField(conf, field, reflect.Bool)
+	v, err := GetStructField(conf, field, reflect.Bool)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func CommandSetOnOff(conf interface{}, field string, args []string) error {
 }
 
 func CommandSetIntArray(conf interface{}, field string, args []string) error {
-	v, err := getStructField(conf, field, reflect.Slice)
+	v, err := GetStructField(conf, field, reflect.Slice)
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func CommandSetIntArray(conf interface{}, field string, args []string) error {
 }
 
 func CommandSetStringArray(conf interface{}, field string, args []string) error {
-	v, err := getStructField(conf, field, reflect.Slice)
+	v, err := GetStructField(conf, field, reflect.Slice)
 	if err != nil {
 		return err
 	}
@@ -251,14 +251,27 @@ func (c *Config) Parse() error {
 	)
 
 	var (
-		start int
-		end   int
+		start   int
+		end     int
+		comment bool
 	)
 
 	state := swInCtx
 
 	for i := 0; i < len(c.content); i++ {
 		ch := c.content[i]
+
+		if ch == '#' {
+			comment = true
+			continue
+		}
+
+		if comment {
+			if ch == '\n' {
+				comment = false
+			}
+			continue
+		}
 
 		switch state {
 		case swInCtx:
@@ -337,6 +350,11 @@ func (c *Config) Parse() error {
 			}
 		}
 	}
+
+	if ctxStack.size() != 1 || state != swInCtx {
+		return errors.New("config not completion")
+	}
+
 	return nil
 }
 
@@ -374,6 +392,8 @@ func (c *Config) initDefault() error {
 			if dlfType.Kind() == reflect.Int {
 				v := cmd.Default.(int)
 				dltVal = strconv.Itoa(v)
+			} else {
+				dltVal = cmd.Default.(string)
 			}
 
 			args := splitCommandEntry([]byte(dltVal))
