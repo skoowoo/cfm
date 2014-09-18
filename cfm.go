@@ -21,6 +21,7 @@ type Context struct {
 	childs     map[string]*Context
 	parent     *Context
 	parentName string
+	found      bool
 	conf       interface{}
 }
 
@@ -73,6 +74,10 @@ func (c *Context) LookupAncestor(name string) *Context {
 
 func (c *Context) Conf() interface{} {
 	return c.conf
+}
+
+func (c *Context) Found() bool {
+	return c.found
 }
 
 type CommandSetter func(conf interface{}, field string, args []string) error
@@ -310,6 +315,7 @@ func (c *Config) Parse() error {
 					return errors.New("Not found context: " + name)
 				} else {
 					ctxStack.push(ctx)
+					ctx.found = true
 				}
 
 				if ch == '{' {
