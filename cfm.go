@@ -249,96 +249,79 @@ func (c *Config) Parse() error {
 	ctxStack.push(rootCtx)
 
 	const (
-		swInCtx = iota
-		swCtxName
-		swCtxStart
+		swStart = iota
+		swComment
 		swTryCmd
 	)
 
 	var (
-		start   int
-		end     int
-		comment bool
+		start int
+		end   int
+		line  int
 	)
 
-	state := swInCtx
+	line = 0
+	state := swStart
 
 	for i := 0; i < len(c.content); i++ {
 		ch := c.content[i]
 
-		if ch == '#' {
-			comment = true
-			continue
-		}
-
-		if comment {
-			if ch == '\n' {
-				comment = false
-			}
-			continue
+		if ch == '\n' {
+			line++
 		}
 
 		switch state {
-		case swInCtx:
+		case swStart:
 
 			if skip(ch) {
 				break
 			}
 
 			if ch == '}' {
-				state = swInCtx
-				ctxStack.pop()
-				break
-			}
-
-			if ch == '$' {
-				state = swCtxName
-				start = i
-				break
-			}
-
-			state = swTryCmd
-			start = i
-
-		case swCtxName:
-
-			if isBlank(ch) || ch == '{' {
-				end = i
-
-				if end-start <= 1 {
-					return errors.New("Invalid context name: " + string(c.content[start:end]))
+				if ctxStack.size() > 1 {
+					ctxStack.pop()
+				} else {
+					return fmt.Errorf("line %d, unexpected '{'", line)
 				}
 
-				name := string(bytes.Trim(c.content[start+1:end], blankCutSet))
+				break
+			}
+
+			if ch == '#' {
+				state = swComment
+				break
+			}
+
+			start = i
+			state = swTryCmd
+			break
+
+		case swComment:
+			if ch == '\n' {
+				state = swStart
+			}
+
+			break
+
+		case swTryCmd:
+			if ch == '{' {
+				end = i - 1
+
+				if end <= start {
+					return fmt.Errorf("line %d, Invalid context name: %s", line, string(c.content[start:end]))
+				}
+
+				name := string(bytes.Trim(c.content[start:end], blankCutSet))
 
 				if ctx, ok := c.allContexts[name]; !ok {
-					return errors.New("Not found context: " + name)
+					return fmt.Errorf("line %d, Not found context: %s", line, name)
 				} else {
 					ctxStack.push(ctx)
 					ctx.found = true
 				}
 
-				if ch == '{' {
-					state = swInCtx
-				} else {
-					state = swCtxStart
-				}
+				state = swStart
 			}
-
-		case swCtxStart:
-
-			if skip(ch) {
-				break
-			}
-
-			if ch == '{' {
-				state = swInCtx
-				break
-			}
-
-			return errors.New("Invalid context defined")
-
-		case swTryCmd:
 
 			if skip(ch) {
 				break
@@ -349,15 +332,17 @@ func (c *Config) Parse() error {
 
 				ctx := ctxStack.top()
 				if err := tryParseCommand(ctx, c.content[start:end]); err != nil {
-					return err
+					return fmt.Errorf("line %d, %s", line, err.Error())
 				}
 
-				state = swInCtx
+				state = swStart
 			}
+
+			break
 		}
 	}
 
-	if ctxStack.size() != 1 || state != swInCtx {
+	if ctxStack.size() != 1 || (state != swStart && state != swComment) {
 		return errors.New("config not completion")
 	}
 
