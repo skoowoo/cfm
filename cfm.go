@@ -260,7 +260,7 @@ func (c *Config) Parse() error {
 		line  int
 	)
 
-	line = 0
+	line = 1
 	state := swStart
 
 	for i := 0; i < len(c.content); i++ {
@@ -281,7 +281,7 @@ func (c *Config) Parse() error {
 				if ctxStack.size() > 1 {
 					ctxStack.pop()
 				} else {
-					return fmt.Errorf("line %d, unexpected '{'", line)
+					return fmt.Errorf("line %d, unexpected '}'", line)
 				}
 
 				break
